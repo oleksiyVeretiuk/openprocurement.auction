@@ -1,7 +1,9 @@
 import logging
 import iso8601
+from json import dumps
+from urlparse import urljoin
 
-from datetime import datetime
+from datetime import datetime, timedelta, time
 from time import mktime, time
 from gevent.subprocess import check_call
 
@@ -21,6 +23,9 @@ from openprocurement.auction.design import (
 from openprocurement.auction.utils import (
     do_until_success, prepare_auction_worker_cmd
 )
+from openprocurement.auction.bridge_utils.utils import check_auction, context_unpack, SESSION
+from openprocurement.auction.bridge_utils.managers import MANAGERS_MAPPING
+
 
 
 SIMPLE_AUCTION_TYPE = 0
@@ -37,6 +42,36 @@ class ClassicAuctionPlanning(object):
 
     def next(self):
         return self
+
+    def add_auction_period(self):
+        url = urljoin(
+            self.bridge.config_get('resource_api_server'),
+            '/'.join(
+                [
+                    'api',
+                    self.bridge.config_get('resource_api_version'),
+                    self.bridge.config_get('resource_name'),
+                    self.item.id
+                ],
+            )
+        )
+        LOGGER.info(url)
+        api_token = self.bridge.config_get('resource_api_token')
+        db = self.bridge.stream_db
+        changes = check_auction(self.item, db, self.bridge.manager_mapper)
+        if changes:
+            data = dumps({'data': changes})
+            r = SESSION.patch(url,
+                              data=data,
+                              headers={'Content-Type': 'application/json'},
+                              auth=(api_token, ''))
+            if r.status_code != 200:
+                LOGGER.error(
+                    "Error {} on updating auction '{}' with '{}': {}".format(r.status_code, url, data, r.text),
+                    extra=context_unpack(r, {'MESSAGE_ID': 'error_patch_auction'},
+                                         {'ERROR_STATUS': r.status_code}))
+            else:
+                LOGGER.info("Successfully updated auction '{}' with '{}'".format(r.status_code, url, data))
 
     def __iter__(self):
         if self.item['status'] == "active.auction":

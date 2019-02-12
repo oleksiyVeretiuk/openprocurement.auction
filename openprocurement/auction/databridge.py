@@ -14,11 +14,14 @@ import argparse
 from urlparse import urljoin
 from zope.interface import implementer
 from yaml import load
-from couchdb import Database, Session
+from couchdb import Database, Session, Server
 from dateutil.tz import tzlocal
 from openprocurement_client.sync import ResourceFeeder
 from openprocurement.auction.interfaces import\
     IAuctionDatabridge, IAuctionsManager
+from openprocurement.auction.bridge_utils.design import sync_design
+from openprocurement.auction.bridge_utils.managers import MANAGERS_MAPPING
+
 from openprocurement.auction.core import components
 from openprocurement.auction.utils import FeedItem, check_workers
 
@@ -67,6 +70,30 @@ class AuctionsDataBridge(object):
             retrievers_params=DEFAULT_RETRIEVERS_PARAMS
         )
 
+        # Stream DB configurations
+        db_name = os.environ.get('DB_NAME', self.config['main']['stream_db'])
+        couch_server = Server(self.config_get('couch_url'), session=Session(retry_delays=range(60)))
+
+        if db_name not in couch_server:
+            couch_server.create(db_name)
+
+        db_for_streams = urljoin(
+            self.config_get('couch_url'),
+            db_name
+        )
+
+        self.stream_db = Database(db_for_streams, session=Session(retry_delays=range(10)))
+
+        sync_design(self.stream_db)
+
+        # Managers Mapping
+        self.manager_mapper = {'types': {}, 'pmts': {}}
+        for name, plugin in self.config_get('plugins').items():
+            auction_manager = MANAGERS_MAPPING[name]()
+            self.manager_mapper['types'][name] = auction_manager
+            if plugin.get('procurement_method_types', []):
+                self.manager_mapper['pmts'].update({pmt: auction_manager for pmt in plugin.get('procurement_method_types')})
+
     def config_get(self, name):
         return self.config.get('main').get(name)
 
@@ -81,6 +108,7 @@ class AuctionsDataBridge(object):
             planning = self.mapper(feed)
             if not planning:
                 continue
+            planning.add_auction_period()
             for cmd, item_id, lot_id in planning:
                 if lot_id:
                     LOGGER.info('Lot {} of tender {} selected for {}'.format(
