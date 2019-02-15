@@ -5,6 +5,18 @@ from pytz import timezone
 from datetime import timedelta, datetime
 
 
+def read_json(name):
+    import inspect
+    import os.path
+    from json import loads
+    caller_file = inspect.stack()[1][1]
+    caller_dir = os.path.dirname(os.path.realpath(caller_file))
+    file_path = os.path.join(caller_dir, name)
+    with open(file_path) as lang_file:
+        data = lang_file.read()
+    return loads(data)
+
+
 STREAMS_ID = 'streams'
 WORKING_DAY_START = time(11, 0)
 INSIDER_WORKING_DAY_START = time(9, 30)
@@ -36,3 +48,5 @@ STREAMS_KEYS = ['streams', 'dutch_streams', 'texas_streams']
 
 
 TZ = timezone(os.environ['TZ'] if 'TZ' in os.environ else 'Europe/Kiev')
+# True means holiday
+WORKING_DAYS = read_json('working_days.json')

@@ -1,8 +1,10 @@
 from gevent import monkey
+
 monkey.patch_all()
 
 try:
     import urllib3.contrib.pyopenssl
+
     urllib3.contrib.pyopenssl.inject_into_urllib3()
 except ImportError:
     pass
@@ -17,14 +19,14 @@ from yaml import load
 from couchdb import Database, Session, Server
 from dateutil.tz import tzlocal
 from openprocurement_client.sync import ResourceFeeder
-from openprocurement.auction.interfaces import\
+from openprocurement.auction.interfaces import \
     IAuctionDatabridge, IAuctionsManager
 from openprocurement.auction.bridge_utils.design import sync_design
 from openprocurement.auction.bridge_utils.managers import MANAGERS_MAPPING
+from openprocurement.auction.bridge_utils.constants import WORKING_DAYS, CALENDAR_ID
 
 from openprocurement.auction.core import components
 from openprocurement.auction.utils import FeedItem, check_workers
-
 
 LOGGER = logging.getLogger(__name__)
 API_EXTRA = {'opt_fields': 'status,auctionPeriod,lots,procurementMethodType',
@@ -41,7 +43,6 @@ DEFAULT_RETRIEVERS_PARAMS = {
 
 @implementer(IAuctionDatabridge)
 class AuctionsDataBridge(object):
-
     """Auctions Data Bridge"""
 
     def __init__(self, config, re_planning=False, debug=False):
@@ -83,7 +84,7 @@ class AuctionsDataBridge(object):
         )
 
         self.stream_db = Database(db_for_streams, session=Session(retry_delays=range(10)))
-
+        self._set_holidays()
         sync_design(self.stream_db)
 
         # Managers Mapping
@@ -93,6 +94,13 @@ class AuctionsDataBridge(object):
             self.manager_mapper['types'][name] = auction_manager
             if plugin.get('procurement_method_types', []):
                 self.manager_mapper['pmts'].update({pmt: auction_manager for pmt in plugin.get('procurement_method_types')})
+
+    def _set_holidays(self):
+        calendar = {'_id': CALENDAR_ID}
+        calendar.update(WORKING_DAYS)
+        if CALENDAR_ID in self.stream_db:
+            del self.stream_db[CALENDAR_ID]
+        self.stream_db.save(calendar)
 
     def config_get(self, name):
         return self.config.get('main').get(name)
