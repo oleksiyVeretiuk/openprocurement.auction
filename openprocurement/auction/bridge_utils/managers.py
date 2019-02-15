@@ -20,7 +20,6 @@ from openprocurement.auction.bridge_utils.constants import (
     STREAMS_ID,
     TZ
 )
-from openprocurement.auction.bridge_utils.utils import find_free_slot
 
 POOL = Pool(1)
 
@@ -30,6 +29,17 @@ ADAPTER = requests.adapters.HTTPAdapter(pool_connections=3, pool_maxsize=3)
 SESSION = requests.Session()
 SESSION.mount('http://', ADAPTER)
 SESSION.mount('https://', ADAPTER)
+
+
+def find_free_slot(plan):
+    streams = plan.get('streams', 0)
+    for cur_stream in range(1, streams + 1):
+        stream_id = 'stream_{}'.format(cur_stream)
+        for slot in plan[stream_id]:
+            if plan[stream_id].get(slot) is None:
+                plan_date = parse_date(plan['_id'].split('_')[1] + 'T' + slot, None)
+                plan_date = plan_date.astimezone(TZ) if plan_date.tzinfo else TZ.localize(plan_date)
+                return plan_date, cur_stream
 
 
 class BaseAuctionsManager(object):
@@ -160,14 +170,6 @@ class ClassicAuctionsManager(BaseAuctionsManager):
 
         start = TZ.localize(datetime.combine(nextDate, dayStart))
         end = start + timedelta(minutes=30)
-
-        # end = calc_auction_end_time(auction.get('numberOfBids', len(auction.get('bids', []))), start)
-
-        # TODO: redundant check, which was used with previous end calculation logic:
-        # if dayStart == self.working_day_start and end > TZ.localize(
-        #     datetime.combine(nextDate, self.working_day_end)
-        # ) and stream <= streams:
-        #     return start, end, dayStart, stream, True
 
         if end <= TZ.localize(datetime.combine(nextDate, self.working_day_end)) and stream <= streams:
             return start, end, dayStart, stream, True

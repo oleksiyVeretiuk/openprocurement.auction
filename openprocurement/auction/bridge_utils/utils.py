@@ -28,17 +28,6 @@ SESSION.mount('http://', ADAPTER)
 SESSION.mount('https://', ADAPTER)
 
 
-def find_free_slot(plan):
-    streams = plan.get('streams', 0)
-    for cur_stream in range(1, streams + 1):
-        stream_id = 'stream_{}'.format(cur_stream)
-        for slot in plan[stream_id]:
-            if plan[stream_id].get(slot) is None:
-                plan_date = parse_date(plan['_id'].split('_')[1] + 'T' + slot, None)
-                plan_date = plan_date.astimezone(TZ) if plan_date.tzinfo else TZ.localize(plan_date)
-                return plan_date, cur_stream
-
-
 def update_logging_context(request, params):
     if not request.__dict__.get('logging_context'):
         request.logging_context = {}
@@ -96,7 +85,6 @@ def skipped_days(days):
 
 
 def planning_auction(auction, mapper, start, db, quick=False, lot_id=None):
-    # Need to move all
     tid = auction.get('id', '')
     mode = auction.get('mode', '')
     manager = get_manager_for_auction(auction, mapper)
@@ -128,7 +116,6 @@ def planning_auction(auction, mapper, start, db, quick=False, lot_id=None):
 
 
 def check_auction(auction, db, mapper):
-    # Need to move all
     now = get_now()
     quick = os.environ.get('SANDBOX_MODE', False) and u'quick' in auction.get('submissionMethodDetails', '')
     if not auction.get('lots') and 'shouldStartAfter' in auction.get('auctionPeriod', {}) and auction['auctionPeriod']['shouldStartAfter'] > auction['auctionPeriod'].get('startDate'):
