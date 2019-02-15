@@ -1,0 +1,63 @@
+main:
+  resource_api_server: http://127.0.0.1:6543
+  resource_api_version: "2.3"
+  resource_api_token: auction
+  resource_name: auctions
+  couch_url: http://admin:zaq1xsw2@0.0.0.0:9000/
+  auctions_db: database
+  timezone: Europe/Kiev
+  stream_db : test_stream_db
+  plugins:
+    english:
+      auction_worker_config: /home/oleksiy.veretiuk/QuintaGroup/projects/kadastral/openprocurement.auction.buildout/etc/auction_worker_defaults.yaml
+      procurement_method_types: [DGFOtherAssets, dgfFinancialAssets]
+      auction_worker: /home/oleksiy.veretiuk/QuintaGroup/projects/kadastral/openprocurement.auction.buildout/bin/auction_worker
+    dutch:
+      auction_worker_config: /home/oleksiy.veretiuk/QuintaGroup/projects/kadastral/openprocurement.auction.buildout/etc/auction_worker_insider.yaml
+      procurement_method_types: [dgfInsider]
+      auction_worker: /home/oleksiy.veretiuk/QuintaGroup/projects/kadastral/openprocurement.auction.buildout/bin/auction_insider
+    texas:
+      auction_worker_config: /home/oleksiy.veretiuk/QuintaGroup/projects/kadastral/openprocurement.auction.buildout/etc/auction_worker_texas.yaml
+      procurement_method_types: [landLease]
+      auction_worker: /home/oleksiy.veretiuk/QuintaGroup/projects/kadastral/openprocurement.auction.buildout/bin/auction_texas
+  retrievers_params:
+     down_requests_sleep: 0.1
+     up_requests_sleep: 0.1
+     up_wait_sleep: 30
+     up_wait_sleep_min: 5
+     queue_size: 501
+version: 1
+disable_existing_loggers: false
+
+formatters:
+  simple:
+    format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+handlers:
+  console:
+    class: logging.StreamHandler
+    level: ERROR
+    formatter: simple
+    stream: ext://sys.stdout
+
+  journal:
+    class: ExtendedJournalHandler.ExtendedJournalHandler
+    level: INFO
+    SYSLOG_IDENTIFIER: AUCTIONS_DATA_BRIDGE
+    TENDERS_API_VERSION: "0"
+    TENDERS_API_URL: https://lb.api-sandbox.ea.openprocurement.org/
+
+loggers:
+  openprocurement.auction.databridge:
+    handlers: [console, journal]
+    propagate: no
+    level: INFO
+
+  openprocurement_client.sync:
+    handlers: [console, journal]
+    propagate: no
+    level: INFO
+
+  "":
+    handlers: [console, journal]
+    level: INFO
