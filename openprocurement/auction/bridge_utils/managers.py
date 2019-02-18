@@ -82,7 +82,6 @@ class BaseAuctionsManager(object):
         :return: amount of streams for auction per day
         :rtype: int
         """
-
         streams = db.get(streams_id, deepcopy(DEFAULT_STREAMS_DOC))
         return streams.get(self.streams_key, DEFAULT_STREAMS_DOC[self.streams_key])
 

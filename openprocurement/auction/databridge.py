@@ -23,7 +23,7 @@ from openprocurement.auction.interfaces import \
     IAuctionDatabridge, IAuctionsManager
 from openprocurement.auction.bridge_utils.design import sync_design
 from openprocurement.auction.bridge_utils.managers import MANAGERS_MAPPING
-from openprocurement.auction.bridge_utils.constants import WORKING_DAYS, CALENDAR_ID
+from openprocurement.auction.bridge_utils.constants import WORKING_DAYS, CALENDAR_ID, STREAMS_ID
 
 from openprocurement.auction.core import components
 from openprocurement.auction.utils import FeedItem, check_workers
@@ -85,6 +85,7 @@ class AuctionsDataBridge(object):
 
         self.stream_db = Database(db_for_streams, session=Session(retry_delays=range(10)))
         self._set_holidays()
+        self._set_streams_limits()
         sync_design(self.stream_db)
 
         # Managers Mapping
@@ -101,6 +102,15 @@ class AuctionsDataBridge(object):
         if CALENDAR_ID in self.stream_db:
             del self.stream_db[CALENDAR_ID]
         self.stream_db.save(calendar)
+
+    def _set_streams_limits(self):
+        streams = self.config.get('main').get('streams', {})
+
+        stream_amount = {'_id': STREAMS_ID}
+        stream_amount.update(streams)
+        if STREAMS_ID in self.stream_db:
+            del self.stream_db[STREAMS_ID]
+        self.stream_db.save(stream_amount)
 
     def config_get(self, name):
         return self.config.get('main').get(name)

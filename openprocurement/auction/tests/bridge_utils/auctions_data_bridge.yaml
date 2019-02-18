@@ -7,6 +7,10 @@ main:
   auctions_db: database
   timezone: Europe/Kiev
   stream_db : test_stream_db
+  streams:
+    streams: 10
+    dutch_streams: 15
+    texas_streams: 20
   plugins:
     english:
       auction_worker_config: /home/oleksiy.veretiuk/QuintaGroup/projects/kadastral/openprocurement.auction.buildout/etc/auction_worker_defaults.yaml
