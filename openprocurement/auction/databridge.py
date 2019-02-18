@@ -117,6 +117,7 @@ class AuctionsDataBridge(object):
             if not planning:
                 continue
             planning.add_auction_period()
+            planning.check_to_free_slot()
             for cmd, item_id, lot_id in planning:
                 if lot_id:
                     LOGGER.info('Lot {} of tender {} selected for {}'.format(

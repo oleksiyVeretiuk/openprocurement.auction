@@ -18,6 +18,7 @@ from openprocurement.auction.bridge_utils.constants import (
     WORKING_DAY_START,
     CALENDAR_ID
 )
+from openprocurement.auction.bridge_utils.design import plan_auctions_view
 
 
 LOGGER = logging.getLogger('Openprocurement Auction')
@@ -175,3 +176,29 @@ def check_auction(auction, db, mapper):
         if any(lots):
             return {'lots': lots}
     return None
+
+
+def check_inner_auction(db, auction, mapper):
+    manager = get_manager_for_auction(auction, mapper)
+
+    auction_time = auction.get('auctionPeriod', {}).get('startDate') and \
+        parse_date(auction.get('auctionPeriod', {}).get('startDate'))
+    lots = dict([
+        (i['id'], parse_date(i.get('auctionPeriod', {}).get('startDate')))
+        for i in auction.get('lots', [])
+        if i.get('auctionPeriod', {}).get('startDate')
+    ])
+    auc_list = [
+        (x.key[1], TZ.localize(parse_date(x.value, None)), x.id)
+        for x in plan_auctions_view(db, startkey=[auction['id'], None],
+                                    endkey=[auction['id'], 32 * "f"])
+    ]
+    for key, plan_time, plan_doc in auc_list:
+        if not key and (not auction_time or not
+                        plan_time < auction_time < plan_time +
+                        timedelta(minutes=30)):
+            manager.free_slot(db, plan_doc, auction['id'], plan_time)
+        elif key and (not lots.get(key) or lots.get(key) and not
+                      plan_time < lots.get(key) < plan_time +
+                      timedelta(minutes=30)):
+            manager.free_slot(db, plan_doc, "_".join([auction['id'], key]), plan_time)

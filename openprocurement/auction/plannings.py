@@ -23,9 +23,12 @@ from openprocurement.auction.design import (
 from openprocurement.auction.utils import (
     do_until_success, prepare_auction_worker_cmd
 )
-from openprocurement.auction.bridge_utils.utils import check_auction, context_unpack, SESSION
-from openprocurement.auction.bridge_utils.managers import MANAGERS_MAPPING
-
+from openprocurement.auction.bridge_utils.utils import (
+    check_auction,
+    context_unpack,
+    SESSION,
+    check_inner_auction
+)
 
 
 SIMPLE_AUCTION_TYPE = 0
@@ -72,6 +75,9 @@ class ClassicAuctionPlanning(object):
                                          {'ERROR_STATUS': r.status_code}))
             else:
                 LOGGER.info("Successfully updated auction '{}' with '{}'".format(r.status_code, url, data))
+
+    def check_to_free_slot(self):
+        check_inner_auction(self.bridge.stream_db, self.item, self.bridge.manager_mapper)
 
     def __iter__(self):
         if self.item['status'] == "active.auction":
