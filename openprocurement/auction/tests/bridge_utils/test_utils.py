@@ -54,7 +54,19 @@ class CheckAuction(BaseWebTest):
         auction_period = check_auction(my_test_auction, self.db, self.mapper)
         self.assertIsNone(auction_period)
 
-    def test_check_auction_start_more_should_start(self):
+    def test_check_auction_without_auction_start_date(self):
+        now = datetime.now(TZ)
+
+        my_test_auction = deepcopy(test_auction_data)
+
+        my_test_auction['auctionPeriod'] = {}
+        my_test_auction['auctionPeriod']['shouldStartAfter'] = (now - timedelta(days=10)).isoformat()
+
+        auction_period = check_auction(my_test_auction, self.db, self.mapper)
+        self.assertIn('auctionPeriod', auction_period)
+        self.assertIn('startDate', auction_period['auctionPeriod'])
+
+    def test_check_auction_start_after_should_start(self):
         now = datetime.now(TZ)
 
         my_test_auction = deepcopy(test_auction_data)
@@ -133,10 +145,25 @@ class CheckAuction(BaseWebTest):
         self.assertIn('lots', lots)
         self.assertEqual(len(lots['lots'][1].keys()), 0)
 
-    def test_check_auction_with_invalid_lots(self):
+    def test_auction_start_absent(self):
+        now = datetime.now(TZ)
+
+        my_test_auction = deepcopy(test_auction_data)
+        auction_period = {
+            'shouldStartAfter': (now + timedelta(days=10)).isoformat()
+        }
+        lot = {'status': 'active', 'auctionPeriod': auction_period, 'id': '1' * 32}
+        my_test_auction['lots'] = [lot, lot]
+
+        lots = check_auction(my_test_auction, self.db, self.mapper)
+        self.assertIn('lots', lots)
+        self.assertEqual(len(lots['lots']), 2)
+
+    def test_check_auction_with_all_invalid_lots(self):
         now = datetime.now(TZ)
         now = now.replace(year=2018, month=8, day=25)
 
+        # no active lots
         my_test_auction = deepcopy(test_auction_data)
         auction_period = {
             'startDate': now.isoformat(),
@@ -150,7 +177,7 @@ class CheckAuction(BaseWebTest):
         lots = check_auction(my_test_auction, self.db, self.mapper)
         self.assertIsNone(lots)
 
-        # should start after before auction
+        # should_start_after before auction
         my_test_auction = deepcopy(test_auction_data)
         should_start_before = deepcopy(lot)
         should_start_before['auctionPeriod']['startDate'] = now.isoformat()
