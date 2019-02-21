@@ -13,17 +13,17 @@ main:
     texas_streams: 20
   plugins:
     english:
-      auction_worker_config: /home/oleksiy.veretiuk/QuintaGroup/projects/kadastral/openprocurement.auction.buildout/etc/auction_worker_defaults.yaml
+      auction_worker_config: /path/to/auction_worker_defaults.yaml
       procurement_method_types: [DGFOtherAssets, dgfFinancialAssets]
-      auction_worker: /home/oleksiy.veretiuk/QuintaGroup/projects/kadastral/openprocurement.auction.buildout/bin/auction_worker
+      auction_worker: /path/to/auction_worker
     dutch:
-      auction_worker_config: /home/oleksiy.veretiuk/QuintaGroup/projects/kadastral/openprocurement.auction.buildout/etc/auction_worker_insider.yaml
+      auction_worker_config: /path/to/auction_worker_insider.yaml
       procurement_method_types: [dgfInsider]
-      auction_worker: /home/oleksiy.veretiuk/QuintaGroup/projects/kadastral/openprocurement.auction.buildout/bin/auction_insider
+      auction_worker: /path/to/auction_insider
     texas:
-      auction_worker_config: /home/oleksiy.veretiuk/QuintaGroup/projects/kadastral/openprocurement.auction.buildout/etc/auction_worker_texas.yaml
+      auction_worker_config: /path/to/auction_worker_texas.yaml
       procurement_method_types: [landLease]
-      auction_worker: /home/oleksiy.veretiuk/QuintaGroup/projects/kadastral/openprocurement.auction.buildout/bin/auction_texas
+      auction_worker: /path/to/auction_texas
   retrievers_params:
      down_requests_sleep: 0.1
      up_requests_sleep: 0.1

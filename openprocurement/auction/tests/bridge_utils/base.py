@@ -2,6 +2,7 @@
 from __future__ import print_function
 import os
 import unittest
+import mock
 
 from yaml import load
 from couchdb import Server
@@ -21,7 +22,8 @@ class BaseWebTest(unittest.TestCase):
         with open(dir_path + '/auctions_data_bridge.yaml') as config_file_obj:
             config = load(config_file_obj.read())
 
-        bridge = AuctionsDataBridge(config)
+        with mock.patch('openprocurement.auction.databridge.check_workers'):
+            bridge = AuctionsDataBridge(config)
 
         self.couchdb_server = Server(config['main'].get('couch_url'))
         self.db = bridge.stream_db
