@@ -119,37 +119,63 @@ def planning_auction(auction, mapper, start, db, quick=False, lot_id=None):
 def check_auction(auction, db, mapper):
     now = get_now()
     quick = os.environ.get('SANDBOX_MODE', False) and u'quick' in auction.get('submissionMethodDetails', '')
-    if not auction.get('lots') and 'shouldStartAfter' in auction.get('auctionPeriod', {}) and auction['auctionPeriod']['shouldStartAfter'] > auction['auctionPeriod'].get('startDate'):
-        period = auction.get('auctionPeriod')
-        shouldStartAfter = max(parse_date(period.get('shouldStartAfter'), TZ).astimezone(TZ), now)
-        planned = False
-        while not planned:
-            try:
-                auctionPeriod, stream, skip_days = planning_auction(auction, mapper, shouldStartAfter, db, quick)
-                planned = True
-            except ResourceConflict:
-                planned = False
-        auctionPeriod = randomize(auctionPeriod).isoformat()
-        planned = 'replanned' if period.get('startDate') else 'planned'
-        LOGGER.info(
-            '{} auction for auction {} to {}. Stream {}.{}'.format(
-                planned.title(), auction['id'], auctionPeriod, stream, skipped_days(skip_days)
-            ),
-            extra={
-                'MESSAGE_ID': '{}_auction_auction'.format(planned),
-                'PLANNED_DATE': auctionPeriod,
-                'PLANNED_STREAM': stream,
-                'PLANNED_DAYS_SKIPPED': skip_days}
+
+    if not auction.get('lots'):
+        period = auction.get('auctionPeriod', {})
+        shouldStartAfter = parse_date(period['shouldStartAfter'], TZ).astimezone(TZ) if period.get('shouldStartAfter') else None
+        start_date = parse_date(period['startDate'], TZ).astimezone(TZ) if period.get('startDate') else None
+
+        is_needed_to_add_auction_period = bool(
+            shouldStartAfter and
+            (
+                start_date is None or
+                shouldStartAfter > start_date
+            )
         )
-        return {'auctionPeriod': {'startDate': auctionPeriod}}
+
+        if shouldStartAfter and is_needed_to_add_auction_period:
+            shouldStartAfter = max(shouldStartAfter, now)
+            planned = False
+            while not planned:
+                try:
+                    auctionPeriod, stream, skip_days = planning_auction(auction, mapper, shouldStartAfter, db, quick)
+                    planned = True
+                except ResourceConflict:
+                    planned = False
+            auctionPeriod = randomize(auctionPeriod).isoformat()
+            planned = 'replanned' if period.get('startDate') else 'planned'
+            LOGGER.info(
+                '{} auction for auction {} to {}. Stream {}.{}'.format(
+                    planned.title(), auction['id'], auctionPeriod, stream, skipped_days(skip_days)
+                ),
+                extra={
+                    'MESSAGE_ID': '{}_auction_auction'.format(planned),
+                    'PLANNED_DATE': auctionPeriod,
+                    'PLANNED_STREAM': stream,
+                    'PLANNED_DAYS_SKIPPED': skip_days}
+            )
+            return {'auctionPeriod': {'startDate': auctionPeriod}}
+
     elif auction.get('lots'):
         lots = []
         for lot in auction.get('lots', []):
-            if lot['status'] != 'active' or 'shouldStartAfter' not in lot.get('auctionPeriod', {}) or lot['auctionPeriod']['shouldStartAfter'] < lot['auctionPeriod'].get('startDate'):
+            period = lot.get('auctionPeriod', {})
+            shouldStartAfter = parse_date(period['shouldStartAfter'], TZ).astimezone(TZ) if period.get(
+                'shouldStartAfter') else None
+            start_date = parse_date(period['startDate'], TZ).astimezone(TZ) if period.get('startDate') else None
+
+            skip_lot = bool(
+                shouldStartAfter is None or (
+                    start_date is not None and
+                    start_date > shouldStartAfter
+                )
+            )
+
+            if lot['status'] != 'active' or skip_lot:
                 lots.append({})
                 continue
             period = lot.get('auctionPeriod')
-            shouldStartAfter = max(parse_date(period.get('shouldStartAfter'), TZ).astimezone(TZ), now)
+            shouldStartAfter = max(shouldStartAfter, now)
             lot_id = lot['id']
             planned = False
             while not planned:
