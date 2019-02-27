@@ -11,7 +11,9 @@ from openprocurement.auction.bridge_utils.utils import (
     planning_auction,
     get_manager_for_auction,
     check_auction,
-    check_inner_auction
+    check_inner_auction,
+    create_auction_period_for_lots,
+    create_auction_period
 )
 from openprocurement.auction.tests.bridge_utils.base import BaseWebTest
 from openprocurement.auction.tests.bridge_utils.data import test_auction_data, plantest
@@ -32,7 +34,32 @@ test_auction_data_test_quick = deepcopy(test_auction_data_quick)
 test_auction_data_test_quick['mode'] = 'test'
 
 
-class CheckAuction(BaseWebTest):
+class CheckAuctionTest(BaseWebTest):
+
+    def test_auction_without_lots(self):
+        my_test_auction = deepcopy(test_auction_data)
+        my_test_auction.pop('lots', None)
+
+        with mock.patch('openprocurement.auction.bridge_utils.utils.create_auction_period') as create_auction_period_mock:
+            expected_result = 'auction period for auction'
+            create_auction_period_mock.return_value = expected_result
+            result = check_auction(my_test_auction, self.db, self.mapper)
+            self.assertEqual(result, expected_result)
+            self.assertEqual(create_auction_period_mock.call_count, 1)
+
+    def test_auction_with_lots(self):
+        my_test_auction = deepcopy(test_auction_data)
+        my_test_auction['lots'] = ['1', '2']
+
+        with mock.patch('openprocurement.auction.bridge_utils.utils.create_auction_period_for_lots') as create_auction_period_for_lots_mock:
+            expected_result = 'auction period for auction lots'
+            create_auction_period_for_lots_mock.return_value = expected_result
+            result = check_auction(my_test_auction, self.db, self.mapper)
+            self.assertEqual(result, expected_result)
+            self.assertEqual(create_auction_period_for_lots_mock.call_count, 1)
+
+
+class CreateAuctionPeriodTest(BaseWebTest):
 
     def test_check_aution(self):
         now = datetime.now(TZ)
@@ -43,7 +70,7 @@ class CheckAuction(BaseWebTest):
         my_test_auction['auctionPeriod']['shouldStartAfter'] = (now + timedelta(days=10)).isoformat()
         my_test_auction['procurementMethodType'] = 'dgfInsider'
 
-        auction_period = check_auction(my_test_auction, self.db, self.mapper)
+        auction_period = create_auction_period(my_test_auction, self.db, self.mapper, 'mode')
         self.assertIn('auctionPeriod', auction_period)
         self.assertIn('startDate', auction_period['auctionPeriod'])
 
@@ -51,7 +78,7 @@ class CheckAuction(BaseWebTest):
         my_test_auction = deepcopy(test_auction_data)
         my_test_auction.pop('auctionPeriod', None)
 
-        auction_period = check_auction(my_test_auction, self.db, self.mapper)
+        auction_period = create_auction_period(my_test_auction, self.db, self.mapper, 'mode')
         self.assertIsNone(auction_period)
 
     def test_check_auction_without_auction_start_date(self):
@@ -62,7 +89,7 @@ class CheckAuction(BaseWebTest):
         my_test_auction['auctionPeriod'] = {}
         my_test_auction['auctionPeriod']['shouldStartAfter'] = (now - timedelta(days=10)).isoformat()
 
-        auction_period = check_auction(my_test_auction, self.db, self.mapper)
+        auction_period = create_auction_period(my_test_auction, self.db, self.mapper, 'mode')
         self.assertIn('auctionPeriod', auction_period)
         self.assertIn('startDate', auction_period['auctionPeriod'])
 
@@ -75,8 +102,11 @@ class CheckAuction(BaseWebTest):
         my_test_auction['auctionPeriod']['startDate'] = now.isoformat()
         my_test_auction['auctionPeriod']['shouldStartAfter'] = (now - timedelta(days=10)).isoformat()
 
-        auction_period = check_auction(my_test_auction, self.db, self.mapper)
+        auction_period = create_auction_period(my_test_auction, self.db, self.mapper, 'mode')
         self.assertIsNone(auction_period)
+
+
+class CreateAuctionPeriodForLotsTest(BaseWebTest):
 
     def test_check_auction_with_lots(self):
         now = datetime.now(TZ)
@@ -89,7 +119,7 @@ class CheckAuction(BaseWebTest):
         lot = {'status': 'active', 'auctionPeriod': auction_period, 'id': '1' * 32}
         my_test_auction['lots'] = [lot, lot]
 
-        lots = check_auction(my_test_auction, self.db, self.mapper)
+        lots = create_auction_period_for_lots(my_test_auction, self.db, self.mapper, 'mode')
         self.assertIn('lots', lots)
         self.assertEqual(len(lots['lots']), 2)
 
@@ -106,7 +136,7 @@ class CheckAuction(BaseWebTest):
         not_active['status'] = 'pending'
         my_test_auction['lots'] = [lot, not_active]
 
-        lots = check_auction(my_test_auction, self.db, self.mapper)
+        lots = create_auction_period_for_lots(my_test_auction, self.db, self.mapper, 'mode')
         self.assertIn('lots', lots)
         self.assertEqual(len(lots['lots'][1].keys()), 0)
 
@@ -124,7 +154,7 @@ class CheckAuction(BaseWebTest):
         should_start_before['auctionPeriod']['shouldStartAfter'] = (now - timedelta(days=10)).isoformat()
         my_test_auction['lots'] = [lot, should_start_before]
 
-        lots = check_auction(my_test_auction, self.db, self.mapper)
+        lots = create_auction_period_for_lots(my_test_auction, self.db, self.mapper, 'mode')
         self.assertIn('lots', lots)
         self.assertEqual(len(lots['lots'][1].keys()), 0)
 
@@ -141,7 +171,7 @@ class CheckAuction(BaseWebTest):
         no_should_start['auctionPeriod'].pop('shouldStartAfter')
         my_test_auction['lots'] = [lot, no_should_start]
 
-        lots = check_auction(my_test_auction, self.db, self.mapper)
+        lots = create_auction_period_for_lots(my_test_auction, self.db, self.mapper, 'mode')
         self.assertIn('lots', lots)
         self.assertEqual(len(lots['lots'][1].keys()), 0)
 
@@ -155,7 +185,7 @@ class CheckAuction(BaseWebTest):
         lot = {'status': 'active', 'auctionPeriod': auction_period, 'id': '1' * 32}
         my_test_auction['lots'] = [lot, lot]
 
-        lots = check_auction(my_test_auction, self.db, self.mapper)
+        lots = create_auction_period_for_lots(my_test_auction, self.db, self.mapper, 'mode')
         self.assertIn('lots', lots)
         self.assertEqual(len(lots['lots']), 2)
 
@@ -174,7 +204,7 @@ class CheckAuction(BaseWebTest):
         not_active['status'] = 'pending'
         my_test_auction['lots'] = [not_active, not_active]
 
-        lots = check_auction(my_test_auction, self.db, self.mapper)
+        lots = create_auction_period_for_lots(my_test_auction, self.db, self.mapper, 'mode')
         self.assertIsNone(lots)
 
         # should_start_after before auction
@@ -184,7 +214,7 @@ class CheckAuction(BaseWebTest):
         should_start_before['auctionPeriod']['shouldStartAfter'] = (now - timedelta(days=10)).isoformat()
         my_test_auction['lots'] = [should_start_before, should_start_before]
 
-        lots = check_auction(my_test_auction, self.db, self.mapper)
+        lots = create_auction_period_for_lots(my_test_auction, self.db, self.mapper, 'mode')
         self.assertIsNone(lots)
 
         # should start absent
@@ -193,7 +223,7 @@ class CheckAuction(BaseWebTest):
         no_should_start['auctionPeriod'].pop('shouldStartAfter')
         my_test_auction['lots'] = [no_should_start, no_should_start]
 
-        lots = check_auction(my_test_auction, self.db, self.mapper)
+        lots = create_auction_period_for_lots(my_test_auction, self.db, self.mapper, 'mode')
         self.assertIsNone(lots)
 
 
