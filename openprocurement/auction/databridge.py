@@ -72,29 +72,32 @@ class AuctionsDataBridge(object):
         )
 
         # Stream DB configurations
-        db_name = os.environ.get('DB_NAME', self.config['main']['stream_db'])
-        couch_server = Server(self.config_get('couch_url'), session=Session(retry_delays=range(60)))
+        self.period_patching_enabled = self.config['main'].get('patchPeriodEnabled', False)
 
-        if db_name not in couch_server:
-            couch_server.create(db_name)
+        if self.period_patching_enabled:
+            couch_server = Server(self.config_get('couch_url'), session=Session(retry_delays=range(60)))
+            db_name = os.environ.get('DB_NAME', self.config['main']['stream_db'])
 
-        db_for_streams = urljoin(
-            self.config_get('couch_url'),
-            db_name
-        )
+            if db_name not in couch_server:
+                couch_server.create(db_name)
 
-        self.stream_db = Database(db_for_streams, session=Session(retry_delays=range(10)))
-        self._set_holidays()
-        self._set_streams_limits()
-        sync_design(self.stream_db)
+            db_for_streams = urljoin(
+                self.config_get('couch_url'),
+                db_name
+            )
 
-        # Managers Mapping
-        self.manager_mapper = {'types': {}, 'pmts': {}}
-        for name, plugin in self.config_get('plugins').items():
-            auction_manager = MANAGERS_MAPPING[name]()
-            self.manager_mapper['types'][name] = auction_manager
-            if plugin.get('procurement_method_types', []):
-                self.manager_mapper['pmts'].update({pmt: auction_manager for pmt in plugin.get('procurement_method_types')})
+            self.stream_db = Database(db_for_streams, session=Session(retry_delays=range(10)))
+            self._set_holidays()
+            self._set_streams_limits()
+            sync_design(self.stream_db)
+
+            # Managers Mapping
+            self.manager_mapper = {'types': {}, 'pmts': {}}
+            for name, plugin in self.config_get('plugins').items():
+                auction_manager = MANAGERS_MAPPING[name]()
+                self.manager_mapper['types'][name] = auction_manager
+                if plugin.get('procurement_method_types', []):
+                    self.manager_mapper['pmts'].update({pmt: auction_manager for pmt in plugin.get('procurement_method_types')})
 
     def _set_holidays(self):
         calendar = {'_id': CALENDAR_ID}
@@ -126,8 +129,11 @@ class AuctionsDataBridge(object):
             planning = self.mapper(feed)
             if not planning:
                 continue
-            planning.add_auction_period()
-            planning.check_to_free_slot()
+
+            if self.period_patching_enabled:
+                planning.add_auction_period()
+                planning.check_to_free_slot()
+
             for cmd, item_id, lot_id in planning:
                 if lot_id:
                     LOGGER.info('Lot {} of tender {} selected for {}'.format(

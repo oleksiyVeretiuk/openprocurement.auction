@@ -7,6 +7,7 @@ main:
   auctions_db: database
   timezone: Europe/Kiev
   stream_db : test_stream_db
+  patchPeriodEnabled: True
   streams:
     streams: 10
     dutch_streams: 15
