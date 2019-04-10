@@ -7,7 +7,7 @@ import mock
 from yaml import load
 from couchdb import Server
 
-from openprocurement.auction.databridge import AuctionsDataBridge
+from openprocurement.auction.bridge_utils.planning_bridge import AuctionsPlanningBridge
 
 
 class BaseWebTest(unittest.TestCase):
@@ -19,11 +19,11 @@ class BaseWebTest(unittest.TestCase):
     def setUp(self):
         dir_path = os.path.dirname(os.path.realpath(__file__))
 
-        with open(dir_path + '/auctions_data_bridge.yaml') as config_file_obj:
+        with open(dir_path + '/planning_bridge.yaml') as config_file_obj:
             config = load(config_file_obj.read())
 
         with mock.patch('openprocurement.auction.databridge.check_workers'):
-            bridge = AuctionsDataBridge(config)
+            bridge = AuctionsPlanningBridge(config)
 
         self.couchdb_server = Server(config['main'].get('couch_url'))
         self.db = bridge.stream_db

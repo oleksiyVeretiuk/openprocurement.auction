@@ -4,27 +4,19 @@ main:
   resource_api_token: auction
   resource_name: auctions
   couch_url: http://admin:zaq1xsw2@0.0.0.0:9000/
-  auctions_db: database
   timezone: Europe/Kiev
   stream_db : test_stream_db
-  patchPeriodEnabled: True
   streams:
     streams: 10
     dutch_streams: 15
     texas_streams: 20
   plugins:
     english:
-      auction_worker_config: /path/to/auction_worker_defaults.yaml
       procurement_method_types: [DGFOtherAssets, dgfFinancialAssets]
-      auction_worker: /path/to/auction_worker
     dutch:
-      auction_worker_config: /path/to/auction_worker_insider.yaml
       procurement_method_types: [dgfInsider]
-      auction_worker: /path/to/auction_insider
     texas:
-      auction_worker_config: /path/to/auction_worker_texas.yaml
       procurement_method_types: [landLease]
-      auction_worker: /path/to/auction_texas
   retrievers_params:
      down_requests_sleep: 0.1
      up_requests_sleep: 0.1
@@ -48,12 +40,12 @@ handlers:
   journal:
     class: ExtendedJournalHandler.ExtendedJournalHandler
     level: INFO
-    SYSLOG_IDENTIFIER: AUCTIONS_DATA_BRIDGE
+    SYSLOG_IDENTIFIER: AUCTIONS_PLANNING_BRIDGE
     TENDERS_API_VERSION: "0"
     TENDERS_API_URL: https://lb.api-sandbox.ea.openprocurement.org/
 
 loggers:
-  openprocurement.auction.databridge:
+  openprocurement.auction.bridge_utils.planning_bridge:
     handlers: [console, journal]
     propagate: no
     level: INFO
