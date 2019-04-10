@@ -21,9 +21,6 @@ from dateutil.tz import tzlocal
 from openprocurement_client.sync import ResourceFeeder
 from openprocurement.auction.interfaces import \
     IAuctionDatabridge, IAuctionsManager
-from openprocurement.auction.bridge_utils.design import sync_design
-from openprocurement.auction.bridge_utils.managers import MANAGERS_MAPPING
-from openprocurement.auction.bridge_utils.constants import WORKING_DAYS, CALENDAR_ID, STREAMS_ID
 
 from openprocurement.auction.core import components
 from openprocurement.auction.utils import FeedItem, check_workers
@@ -71,50 +68,6 @@ class AuctionsDataBridge(object):
             retrievers_params=DEFAULT_RETRIEVERS_PARAMS
         )
 
-        # Stream DB configurations
-        self.period_patching_enabled = self.config['main'].get('patchPeriodEnabled', False)
-
-        if self.period_patching_enabled:
-            couch_server = Server(self.config_get('couch_url'), session=Session(retry_delays=range(60)))
-            db_name = os.environ.get('DB_NAME', self.config['main']['stream_db'])
-
-            if db_name not in couch_server:
-                couch_server.create(db_name)
-
-            db_for_streams = urljoin(
-                self.config_get('couch_url'),
-                db_name
-            )
-
-            self.stream_db = Database(db_for_streams, session=Session(retry_delays=range(10)))
-            self._set_holidays()
-            self._set_streams_limits()
-            sync_design(self.stream_db)
-
-            # Managers Mapping
-            self.manager_mapper = {'types': {}, 'pmts': {}}
-            for name, plugin in self.config_get('plugins').items():
-                auction_manager = MANAGERS_MAPPING[name]()
-                self.manager_mapper['types'][name] = auction_manager
-                if plugin.get('procurement_method_types', []):
-                    self.manager_mapper['pmts'].update({pmt: auction_manager for pmt in plugin.get('procurement_method_types')})
-
-    def _set_holidays(self):
-        calendar = {'_id': CALENDAR_ID}
-        calendar.update(WORKING_DAYS)
-        if CALENDAR_ID in self.stream_db:
-            del self.stream_db[CALENDAR_ID]
-        self.stream_db.save(calendar)
-
-    def _set_streams_limits(self):
-        streams = self.config.get('main').get('streams', {})
-
-        stream_amount = {'_id': STREAMS_ID}
-        stream_amount.update(streams)
-        if STREAMS_ID in self.stream_db:
-            del self.stream_db[STREAMS_ID]
-        self.stream_db.save(stream_amount)
-
     def config_get(self, name):
         return self.config.get('main').get(name)
 
@@ -129,10 +82,6 @@ class AuctionsDataBridge(object):
             planning = self.mapper(feed)
             if not planning:
                 continue
-
-            if self.period_patching_enabled:
-                planning.add_auction_period()
-                planning.check_to_free_slot()
 
             for cmd, item_id, lot_id in planning:
                 if lot_id:
